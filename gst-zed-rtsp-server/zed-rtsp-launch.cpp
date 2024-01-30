@@ -31,12 +31,18 @@
 
 #define DEFAULT_RTSP_PORT "8554"
 #define DEFAULT_RTSP_HOST "127.0.0.1"
+#define DEFAULT_RTSP_NAME "/zed-stream"
 
 static char *port = (char *) DEFAULT_RTSP_PORT;
 static char *host = (char *) DEFAULT_RTSP_HOST;
+static char *rtspName = (char *) DEFAULT_RTSP_NAME;
 
-static GOptionEntry entries[] = {{"port", 'p', 0, G_OPTION_ARG_STRING, &port, "Port to listen on( default: " DEFAULT_RTSP_PORT ")", "PORT"},
-                                 {"address", 'a', 0, G_OPTION_ARG_STRING, &host, "Host address( default: " DEFAULT_RTSP_HOST ")", "HOST"},
+static GOptionEntry entries[] = {{"port", 'p', 0, G_OPTION_ARG_STRING, &port,
+                                  "Port to listen on( default: " DEFAULT_RTSP_PORT ")", "PORT"},
+                                 {"address", 'a', 0, G_OPTION_ARG_STRING, &host,
+                                  "Host address( default: " DEFAULT_RTSP_HOST ")", "HOST"},
+                                 {"rtsp-name", 'n', 0, G_OPTION_ARG_STRING, &rtspName,
+                                  "RTSP name (default: " DEFAULT_RTSP_NAME ")", "RTSP_NAME"},
                                  {NULL}};
 
 static void client_connected(GstRTSPServer *server, GstRTSPClient *client) {
@@ -55,7 +61,8 @@ int main(int argc, char *argv[]) {
 
     optctx =
         g_option_context_new("PIPELINE-DESCRIPTION - ZED RTSP Server, Launch\n\n"
-                             "Example: gst-zed-rtsp-server zedsrc ! videoconvert ! 'video/x-raw, format=(string)I420' ! x264enc ! rtph264pay pt=96 name=pay0");
+                             "Example: gst-zed-rtsp-server zedsrc ! videoconvert ! 'video/x-raw, "
+                             "format=(string)I420' ! x264enc ! rtph264pay pt=96 name=pay0");
     g_option_context_add_main_entries(optctx, entries, NULL);
     g_option_context_add_group(optctx, gst_init_get_option_group());
     if (!g_option_context_parse(optctx, &argc, &argv, &error)) {
@@ -85,7 +92,8 @@ int main(int argc, char *argv[]) {
 
     if (!pipeline) {
         if (error) {
-            gst_printerr("ERROR - pipeline could not be constructed: %s.\n", GST_STR_NULL(error->message));
+            gst_printerr("ERROR - pipeline could not be constructed: %s.\n",
+                         GST_STR_NULL(error->message));
             g_clear_error(&error);
         } else {
             gst_printerr("ERROR - pipeline could not be constructed.\n");
@@ -99,8 +107,10 @@ int main(int argc, char *argv[]) {
 
     GstElement *payload = gst_bin_get_by_name(GST_BIN(pipeline), "pay0");
     if (!payload) {
-        gst_printerr("ERROR - at least a payload with name 'pay0' must be present in the pipeline.\n");
-        gst_printerr("Example: zedsrc ! videoconvert ! video/x-raw, format=(string)I420 ! x264enc ! rtph264pay pt=96 name=pay0\n");
+        gst_printerr(
+            "ERROR - at least a payload with name 'pay0' must be present in the pipeline.\n");
+        gst_printerr("Example: zedsrc ! videoconvert ! video/x-raw, format=(string)I420 ! x264enc "
+                     "! rtph264pay pt=96 name=pay0\n");
         return 1;
     }
     g_object_unref(payload);
@@ -108,7 +118,8 @@ int main(int argc, char *argv[]) {
     // <---- Check launch pipeline correctness */
 
     // ----> Create RTSP Server pipeline
-    // Note: `gst_rtsp_media_factory_set_launch` requires a GstBin element, the easier way to create it is to enclose
+    // Note: `gst_rtsp_media_factory_set_launch` requires a GstBin element, the easier way to create
+    // it is to enclose
     //       the pipeline in round brackets '(' ')'.
     std::string rtsp_pipeline;
     rtsp_pipeline = "( ";
@@ -142,7 +153,7 @@ int main(int argc, char *argv[]) {
     gst_rtsp_media_factory_set_shared(factory, TRUE);
 
     /* attach the test factory to the /test url */
-    gst_rtsp_mount_points_add_factory(mounts, "/zed-stream", factory);
+    gst_rtsp_mount_points_add_factory(mounts, rtspName, factory);
 
     /* don't need the ref to the mapper anymore */
     g_object_unref(mounts);
@@ -155,7 +166,7 @@ int main(int argc, char *argv[]) {
     /* start serving */
     g_print(" ZED RTSP Server \n");
     g_print("-----------------\n");
-    g_print(" * Stream ready at rtsp://%s:%s/zed-stream\n", host, port);
+    g_print(" * Stream ready at rtsp://%s:%s%s\n", host, port, rtspName);
     g_main_loop_run(loop);
 
     return 0;
